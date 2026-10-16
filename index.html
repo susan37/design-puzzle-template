@@ -45,29 +45,18 @@ function drawTemplate(){
  // Recolor neutral white/gray ornament pixels, while preserving the logo and the puzzle frame border.
  const chosen=hexRgb($('templateColor').value);
  const image=ctx.getImageData(0,0,canvas.width,canvas.height),d=image.data;
- // The puzzle-area controls define the inner black box. Keep a narrow band around its four edges untouched.
- const bx=canvas.width*Number($('left').value)/100;
- const by=canvas.height*Number($('top').value)/100;
- const bw=canvas.width*Number($('width').value)/100;
- const bh=canvas.height*Number($('height').value)/100;
- const borderBand=Math.max(5,Math.min(canvas.width,canvas.height)*0.012);
+ // Tint every neutral white/gray pixel (ornaments, glitter frame, sparkles) while keeping shading,
+ // and leave the logo block (portrait, nameplate, number badge) in its original colors.
  for(let i=0;i<d.length;i+=4){
-  const pixel=i/4, px=pixel%canvas.width, py=Math.floor(pixel/canvas.width);
+  const px=(i/4)%canvas.width, py=Math.floor(i/4/canvas.width);
   const r=d[i],g=d[i+1],b=d[i+2],a=d[i+3];
-  const hi=Math.max(r,g,b),lo=Math.min(r,g,b),spread=hi-lo,lum=(r+g+b)/3;
-  // Keep the portrait, nameplate, and number badge in their original colors.
-  const inLogoArea = px >= canvas.width*0.77 && py <= canvas.height*0.23;
-  // Preserve the complete decorative frame around the black puzzle area, including its white highlights.
-  const nearBox=(px>=bx-borderBand && px<=bx+bw+borderBand && py>=by-borderBand && py<=by+bh+borderBand);
-  const onPuzzleBorder=nearBox && (Math.abs(px-bx)<=borderBand || Math.abs(px-(bx+bw))<=borderBand || Math.abs(py-by)<=borderBand || Math.abs(py-(by+bh))<=borderBand);
-  // Include slightly gray/colored-off-white pixels too, so anti-aliased white ornament details tint evenly.
-  const neutralLight=lo>118 && spread<68 && lum>145;
-  if(!inLogoArea && !onPuzzleBorder && a>0 && neutralLight){
-   const strength=Math.max(0,Math.min(1,(lum-118)/100));
-   d[i]=Math.round(r*(1-strength)+chosen.r*strength);
-   d[i+1]=Math.round(g*(1-strength)+chosen.g*strength);
-   d[i+2]=Math.round(b*(1-strength)+chosen.b*strength);
-  }
+  const lum=(r+g+b)/3,spread=Math.max(r,g,b)-Math.min(r,g,b);
+  const inLogoArea = px >= canvas.width*0.725 && py <= canvas.height*0.155;
+  if(inLogoArea||a===0||spread>=68||lum<50)continue;
+  const s=Math.min(1,(lum-50)/60),f=Math.min(1,lum/230);
+  d[i]=Math.round(r*(1-s)+chosen.r*f*s);
+  d[i+1]=Math.round(g*(1-s)+chosen.g*f*s);
+  d[i+2]=Math.round(b*(1-s)+chosen.b*f*s);
  }
  ctx.putImageData(image,0,0);
 }
