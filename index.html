@@ -45,18 +45,18 @@ function drawTemplate(){
  // Recolor neutral white/gray ornament pixels, while preserving the logo and the puzzle frame border.
  const chosen=hexRgb($('templateColor').value);
  const image=ctx.getImageData(0,0,canvas.width,canvas.height),d=image.data;
- // Tint every neutral white/gray pixel (ornaments, glitter frame, sparkles) while keeping shading,
- // and leave the logo block (portrait, nameplate, number badge) in its original colors.
+ // Colorize neutral gray ornaments (banner, glitter frame, sparkle glow) with the chosen color.
+ // Whites stay white (title text, ring, sparkle centers); portrait and nameplate area is untouched.
+ const WH=0.7;
  for(let i=0;i<d.length;i+=4){
   const px=(i/4)%canvas.width, py=Math.floor(i/4/canvas.width);
   const r=d[i],g=d[i+1],b=d[i+2],a=d[i+3];
   const lum=(r+g+b)/3,spread=Math.max(r,g,b)-Math.min(r,g,b);
-  const inLogoArea = px >= canvas.width*0.725 && py <= canvas.height*0.155;
-  if(inLogoArea||a===0||spread>=68||lum<50)continue;
-  const s=Math.min(1,(lum-50)/60),f=Math.min(1,lum/230);
-  d[i]=Math.round(r*(1-s)+chosen.r*f*s);
-  d[i+1]=Math.round(g*(1-s)+chosen.g*f*s);
-  d[i+2]=Math.round(b*(1-s)+chosen.b*f*s);
+  if((px>=canvas.width*0.855&&py<=canvas.height*0.155)||a===0||spread>=40||lum<50)continue;
+  const t=lum/255,s=Math.min(1,(lum-50)/60);
+  const k=t<WH?t/WH:1,w=t<WH?0:(t-WH)/(1-WH);
+  const cr=chosen.r*k+(255-chosen.r*k)*w,cg=chosen.g*k+(255-chosen.g*k)*w,cb=chosen.b*k+(255-chosen.b*k)*w;
+  d[i]=Math.round(r*(1-s)+cr*s);d[i+1]=Math.round(g*(1-s)+cg*s);d[i+2]=Math.round(b*(1-s)+cb*s);
  }
  ctx.putImageData(image,0,0);
 }
