@@ -22,10 +22,10 @@
 <div class="grid2"><div><label>Letter size (px)</label><input id="size" type="number" min="14" max="150" value="48"></div><div><label>Minimum gap (px)</label><input id="gap" type="number" min="0" max="100" value="18"></div></div>
 <div class="grid2"><div><label>Yellow center size multiplier</label><input id="centerSize" type="number" min="1" max="2" step=".05" value="1.15"></div><div><label>Randomness (tries per unit)</label><input id="tries" type="number" min="100" max="10000" step="100" value="5000"></div></div>
 <label>Placement style</label><select id="layoutStyle" style="width:100%;padding:10px;border:1px solid #bbb;border-radius:8px;background:#fff;color:#171717">
-<option value="rows" selected>Ordered: center → corners → edge middles → fill outward</option>
+<option value="rows" selected>Balanced rows: yellow center, evenly filled</option>
 <option value="random">Random scatter with spacing</option>
 </select>
-<p class="help">Ordered placement: the letters are shuffled, then placed on an even grid in this order: yellow center, four corners, middle of each edge, then the remaining spots outward. Long verses shrink the letters automatically to fit.</p>
+<p class="help">Balanced placement: the letters are shuffled, then spread evenly across the puzzle area with the yellow unit in the exact center and no empty gaps. Long verses shrink the letters automatically to fit.</p>
 <h2 style="margin-top:20px">4. Puzzle area (%)</h2><p class="help">These defaults fit the usual framed template; adjust if needed so letters stay inside the black area.</p>
 <div class="grid2"><div><label>Left</label><input id="left" type="number" step=".5" value="5.5"></div><div><label>Top</label><input id="top" type="number" step=".5" value="17.5"></div><div><label>Width</label><input id="width" type="number" step=".5" value="89"></div><div><label>Height</label><input id="height" type="number" step=".5" value="76"></div></div>
 <button id="scatter">Scatter letters</button><button id="download" class="secondary">Download PNG</button>
@@ -98,40 +98,43 @@ function scatter(){
    pieces.sort((a,b)=>(b.w*b.h)-(a.w*a.h));
    for(const p of pieces)if(!randomPlace(p))failed.push(p.text);
  } else {
-   // Ordered grid. Pieces are shuffled, then placed in a fixed order: center (yellow), four corners,
-   // middle of each edge, then the remaining cells outward in mirrored groups. Font shrinks if the verse is long.
+   // Balanced rows: shuffle, then fill every row evenly (no holes) with the yellow unit dead center.
+   // Row counts differ by at most one; each row is spread across the full width. Font shrinks if the verse is long.
    for(let i=pieces.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pieces[i],pieces[j]]=[pieces[j],pieces[i]]}
    const all=[first,...pieces];all.forEach(p=>p.size0=p.size);
-   const uw=BW-2*margin,uh=BH-2*margin,need=all.length,odd=n=>n%2?n:n-1;
-   let scale=1,grid=null;
+   const uw=BW-2*margin,uh=BH-2*margin,need=all.length;
+   function rowCounts(R){
+     let c0=Math.round(need/R);if(c0%2===0)c0=need/R>c0?c0+1:Math.max(1,c0-1);
+     c0=Math.min(c0,need);if(c0%2===0)c0--;
+     const rem=need-c0,mid=(R-1)/2;
+     if(R===1)return rem===0?[c0]:null;
+     const per=Math.floor(rem/(R-1)),ex=rem%(R-1),counts=Array(R).fill(per);counts[mid]=c0;
+     const order=[];for(let d=1;d<=mid;d++)order.push(mid-d,mid+d);
+     for(let i=0;i<ex;i++)counts[order[i]]++;
+     return counts;
+   }
+   let scale=1,plan=null;
    for(;;){
      for(const p of all){p.size=p.size0*scale;Object.assign(p,measure(p.text,p.size))}
      const mw=Math.max(...all.map(p=>p.w))+gap,mh=Math.max(...all.map(p=>p.h))+gap;
-     const maxC=odd(Math.floor(uw/mw)),maxR=odd(Math.floor(uh/mh));
-     for(let c=1;c<=maxC;c+=2)for(let r=1;r<=maxR;r+=2){
-       if(c*r<need)continue;
-       const score=[c*r,Math.abs(c/r-uw/uh)];
-       if(!grid||score[0]<grid.score[0]||(score[0]===grid.score[0]&&score[1]<grid.score[1]))grid={c,r,score};
+     for(let R=1;R*mh<=uh;R+=2){
+       const counts=rowCounts(R);if(!counts||Math.min(...counts)<1&&R>1)continue;
+       const k=Math.max(...counts);if(k*mw>uw)continue;
+       const score=Math.abs(Math.log((uw/k)/(uh/R)));
+       if(!plan||score<plan.score)plan={R,counts,score};
      }
-     if(grid||p0(scale)<12){if(!grid&&maxC>=1&&maxR>=1)grid={c:maxC,r:maxR};break}
+     if(plan||fs*scale<12)break;
      scale*=.94;
    }
-   function p0(sc){return fs*sc}
    if(scale<1)note=`\nLetter size reduced to ${Math.round(fs*scale)}px so every unit fits. Increase the puzzle area or lower the gap to keep it larger.`;
    first.x=L+BW/2-first.w/2;first.y=T+BH/2-first.h/2;
-   if(!grid){failed.push(...pieces.map(p=>p.text))}else{
-     const {c:cols,r:rows}=grid,cw=uw/cols,ch=uh/rows,cc=(cols-1)/2,rr=(rows-1)/2,cells=[];
-     const order=[[-1,-1],[1,1],[1,-1],[-1,1]];
-     for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-       if(c===cc&&r===rr)continue;
-       const u=Math.abs(c-cc),v=Math.abs(r-rr),ru=cc?u/cc:0,rv=rr?v/rr:0,sx=Math.sign(c-cc),sy=Math.sign(r-rr);
-       const corner=cc&&rr&&ru===1&&rv===1,mid=(ru===1&&v===0)||(rv===1&&u===0);
-       const tier=corner?0:mid?1:2+(1-Math.max(ru,rv))*10;
-       cells.push({x:L+margin+(c+.5)*cw,y:T+margin+(r+.5)*ch,tier,m:Math.min(ru,rv),u,v,
-         g:order.findIndex(([a,b])=>(sx===0||sx===a)&&(sy===0||sy===b))});
-     }
-     cells.sort((a,b)=>a.tier-b.tier||a.m-b.m||a.u-b.u||a.v-b.v||a.g-b.g);
-     pieces.forEach((p,i)=>{const sl=cells[i];if(!sl||!tryAt(p,sl.x-p.w/2,sl.y-p.h/2))failed.push(p.text)});
+   if(!plan){failed.push(...pieces.map(p=>p.text))}else{
+     const slots=[];
+     plan.counts.forEach((k,r)=>{for(let j=0;j<k;j++){
+       if(r===(plan.R-1)/2&&j===(k-1)/2)continue;
+       slots.push({x:L+margin+(j+.5)*uw/k,y:T+margin+(r+.5)*uh/plan.R});
+     }});
+     pieces.forEach((p,i)=>{const sl=slots[i];if(!sl||!tryAt(p,sl.x-p.w/2,sl.y-p.h/2))failed.push(p.text)});
    }
  }
  ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
