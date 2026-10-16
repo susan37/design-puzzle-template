@@ -28,7 +28,7 @@
 <p class="help">Letters are shuffled first. Short verses (up to 15 units) use the reference layout: corners, top/bottom middle, two on each side, above/below and beside the yellow center. Longer verses fill balanced rows with the yellow unit centered and shrink the letters to fit.</p>
 <h2 style="margin-top:20px">4. Puzzle area (%)</h2><p class="help">These defaults fit the usual framed template; adjust if needed so letters stay inside the black area.</p>
 <div class="grid2"><div><label>Left</label><input id="left" type="number" step=".5" value="5.5"></div><div><label>Top</label><input id="top" type="number" step=".5" value="17.5"></div><div><label>Width</label><input id="width" type="number" step=".5" value="89"></div><div><label>Height</label><input id="height" type="number" step=".5" value="76"></div></div>
-<button id="scatter">Scatter letters</button><button id="download" class="secondary">Download PNG</button>
+<button id="scatter">Scatter letters</button><button id="download" class="secondary">Download PNG</button><button id="copy" class="secondary">Copy image</button>
 <div id="status" class="status">Loading template.png…</div>
 </section>
 <section class="card preview"><h2>Preview</h2><canvas id="canvas" width="1248" height="1248"></canvas><p class="help">Layout matches your examples: bigger, bold Telugu pieces with broad spacing and the first unit in yellow at the center. No rows or word-order layout is imposed.</p><p class="small">Tip: If some units cannot fit without touching, reduce font size or gap. Make sure the browser has a Telugu font installed.</p></section>
@@ -161,6 +161,11 @@ function scatter(){
 $('scatter').addEventListener('click',scatter);
 ['templateColor','puzzleNumber','numberX','numberY','numberSize','numberColor'].forEach(id=>$(id).addEventListener('input',()=>{base();ready=false;status('Template color or puzzle number updated. Click Scatter letters to redraw the puzzle, then download PNG.')}));
 $('download').addEventListener('click',()=>{if(!ready){status('Click Scatter letters first.','warn');return}const a=document.createElement('a');a.download='telugu-bible-puzzle.png';a.href=canvas.toDataURL('image/png');a.click()});
+$('copy').addEventListener('click',()=>{
+ if(!ready){status('Click Scatter letters first.','warn');return}
+ if(!navigator.clipboard||typeof ClipboardItem==='undefined'){status('Copy is not supported in this browser. Use Download PNG instead.','warn');return}
+ canvas.toBlob(blob=>navigator.clipboard.write([new ClipboardItem({'image/png':blob})]).then(()=>status('Image copied. Paste it into WhatsApp, Telegram, a document, etc.','good'),e=>status('Could not copy the image ('+e.message+'). Use Download PNG instead.','warn')),'image/png');
+});
 base();
 loadFixedTemplate();
 </script></body></html>
