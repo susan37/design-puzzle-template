@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telugu Bible Verse Puzzle Generator</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#111;color:#222}
+header{background:white;padding:20px;border-radius:0 0 16px 16px}
+h1{margin:0 0 10px;font-size:26px}
+header p{line-height:1.5}
+main{display:grid;grid-template-columns:minmax(280px,430px) 1fr;gap:18px;padding:18px}
+.panel{background:#fff;border-radius:14px;padding:18px;min-width:0}
+label{display:block;font-weight:bold;margin:16px 0 7px}
+input,textarea,select,button{font:inherit;width:100%;padding:11px;border:1px solid #bbb;border-radius:7px}
+textarea{min-height:220px;line-height:1.7}
+button{cursor:pointer;border:0;background:#bd006a;color:white;font-weight:bold;margin-top:12px}
+button.secondary{background:#333}
+small,.hint{color:#666;line-height:1.5}
+canvas{width:100%;height:auto;display:block;border-radius:8px;background:#000}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:800px){main{grid-template-columns:1fr;padding:10px}.panel{padding:12px}h1{font-size:22px}}
+</style>
+</head>
+<body>
+<header>
+<h1>Telugu Bible Verse Puzzle Generator</h1>
+<p>Upload your template, enter exact Telugu written units one per line, and arrange them in a balanced puzzle layout.</p>
+<p class="hint">Important: The first unit is highlighted yellow at the center. All other units are white. Verify the Telugu font and preview before exporting.</p>
+</header>
+
+<main>
+<section class="panel">
+<h2>1. Template and letters</h2>
+<label for="template">Upload puzzle template</label>
+<input id="template" type="file" accept="image/*">
+
+<label for="units">Exact Telugu units (one per line)</label>
+<textarea id="units" placeholder="నీ&#10;తి&#10;న్యా&#10;యం"></textarea>
+<small>Enter each intended puzzle piece exactly as it should appear. Repeated units must be entered on separate lines. Do not paste the full verse unless you want to scatter whole words.</small>
+
+<label for="number">Puzzle number (optional)</label>
+<input id="number" placeholder="e.g. 254">
+
+<div class="row">
+<div>
+<label for="fontSize">Font size (px)</label>
+<input id="fontSize" type="number" min="12" max="120" value="46">
+</div>
+<div>
+<label for="gap">Minimum spacing (px)</label>
+<input id="gap" type="number" min="0" max="80" value="18">
+</div>
+</div>
+
+<label for="font">Telugu font</label>
+<select id="font">
+<option value="'Noto Sans Telugu', sans-serif">Noto Sans Telugu</option>
+<option value="'Gautami', sans-serif">Gautami</option>
+<option value="'Nirmala UI', sans-serif">Nirmala UI</option>
+<option value="sans-serif">System sans-serif</option>
+</select>
+<small>For reliable Telugu rendering, use a device/browser with a Telugu-compatible font installed.</small>
+
+<label>Black puzzle area (percent of image)</label>
+<div class="row">
+<div><label for="left">Left %</label><input id="left" type="number" value="6" step="0.5"></div>
+<div><label for="top">Top %</label><input id="top" type="number" value="17" step="0.5"></div>
+<div><label for="width">Width %</label><input id="width" type="number" value="88" step="0.5"></div>
+<div><label for="height">Height %</label><input id="height" type="number" value="76" step="0.5"></div>
+</div>
+<small>Adjust these values so letters stay inside the black box, not on the glitter border.</small>
+
+<button id="scatter">Shuffle and place letters</button>
+<button id="download" class="secondary">Download PNG</button>
+</section>
+
+<section class="panel">
+<h2>Preview</h2>
+<canvas id="canvas" width="1248" height="1248"></canvas>
+<p class="hint">Placement priority: four corners → top/bottom center → two left and two right → above/below yellow center → left/right of yellow center → fill remaining spaces.</p>
+</section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const canvas = $("canvas");
+const ctx = canvas.getContext("2d");
+let templateImage = null;
+
+$("template").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    templateImage = img;
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    drawBase();
+  };
+  img.src = URL.createObjectURL(file);
+});
+
+function drawBase(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(templateImage) ctx.drawImage(templateImage,0,0,canvas.width,canvas.height);
+  else {
+    ctx.fillStyle="#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="#fff"; ctx.font="24px Arial";
+    ctx.fillText("Upload your puzzle template to begin",30,50);
+  }
+}
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function overlaps(a,b,gap){
+  return !(a.x+a.w+gap<=b.x || b.x+b.w+gap<=a.x ||
+           a.y+a.h+gap<=b.y || b.y+b.h+gap<=a.y);
+}
+
+function scatter(){
+  if(!templateImage){alert("Upload your template first.");return;}
+  let pieces=$("units").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if(!pieces.length){alert("Enter the Telugu units, one per line.");return;}
+
+  const W=canvas.width,H=canvas.height;
+  const L=W*Number($("left").value)/100;
+  const T=H*Number($("top").value)/100;
+  const BW=W*Number($("width").value)/100;
+  const BH=H*Number($("height").value)/100;
+  const fontSize=Number($("fontSize").value)||46;
+  const gap=Number($("gap").value)||0;
+  const font=$("font").value;
+  const yellow=pieces.shift();
+
+  ctx.clearRect(0,0,W,H);
+  ctx.drawImage(templateImage,0,0,W,H);
+
+  function measure(text,size){
+    ctx.font=`bold ${size}px ${font}`;
+    const m=ctx.measureText(text);
+    return {w:Math.max(m.width,size*.65),h:size*1.25};
+  }
+  function makePiece(text,size,color){
+    const m=measure(text,size);
+    return {text,size,color,w:m.w,h:m.h};
+  }
+  function drawPiece(p,x,y){
+    ctx.font=`bold ${p.size}px ${font}`;
+    ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.lineJoin="round";
+    ctx.fillStyle=p.color;
+    ctx.fillText(p.text,x+p.w/2,y+p.h/2);
+  }
+
+  const center={x:L+BW/2,y:T+BH/2};
+  const yellowPiece=makePiece(yellow,fontSize*1.12,"#ffeb00");
+  drawPiece(yellowPiece,center.x-yellowPiece.w/2,center.y-yellowPiece.h/2);
+
+  const slots=[];
+  const add=(x,y,group)=>slots.push({x:L+BW*x,y:T+BH*y,group});
+  // Priority 1: four corners
+  add(.10,.10,1);add(.90,.10,1);add(.10,.90,1);add(.90,.90,1);
+  // Priority 2: top and bottom center
+  add(.50,.10,2);add(.50,.90,2);
+  // Priority 3: two on each side
+  add(.10,.32,3);add(.10,.68,3);add(.90,.32,3);add(.90,.68,3);
+  // Priority 4: above and below yellow center
+  add(.50,.34,4);add(.50,.66,4);
+  // Priority 5: left and right of yellow center
+  add(.30,.50,5);add(.70,.50,5);
+
+  // Priority 6: additional balanced positions
+  for(const y of [.20,.40,.60,.80]){
+    for(const x of [.25,.50,.75]){
+      if(!slots.some(s=>Math.abs(s.x-(L+BW*x))<BW*.04&&Math.abs(s.y-(T+BH*y))<BH*.04))
+        slots.push({x:L+BW*x,y:T+BH*y,group:6});
+    }
+  }
+
+  // The pieces are mixed before being assigned to the priority positions.
+  shuffle(pieces);
+  slots.sort((a,b)=>a.group-b.group);
+
+  const placed=[{
+    x:center.x-yellowPiece.w/2,y:center.y-yellowPiece.h/2,
+    w:yellowPiece.w,h:yellowPiece.h
+  }];
+  const used=[];
+  const failed=[];
+
+  for(const text of pieces){
+    let p=makePiece(text,fontSize,"#fff");
+    let found=null;
+    for(let i=0;i<slots.length;i++){
+      if(used.includes(i))continue;
+      const s=slots[i];
+      const x=s.x-p.w/2,y=s.y-p.h/2;
+      const box={x,y,w:p.w,h:p.h};
+      if(x<L||y<T||x+p.w>L+BW||y+p.h>T+BH)continue;
+      if(placed.some(q=>overlaps(box,q,gap)))continue;
+      found={i,x,y,box};break;
+    }
+    if(found){
+      used.push(found.i);placed.push(found.box);drawPiece(p,found.x,found.y);
+    }else{
+      failed.push(text);
+    }
+  }
+
+  if(failed.length){
+    alert(`${failed.length} unit(s) could not fit without overlap. Reduce font size or spacing, or increase the black-box dimensions. Unplaced units: ${failed.join(", ")}`);
+  }
+}
+
+$("scatter").addEventListener("click",scatter);
+$("download").addEventListener("click",()=>{
+  if(!templateImage){alert("Upload your template first.");return;}
+  const link=document.createElement("a");
+  link.download=`telugu-puzzle-${$("number").value||"output"}.png`;
+  link.href=canvas.toDataURL("image/png");
+  link.click();
+});
+drawBase();
+</script>
+</body>
+</html>
