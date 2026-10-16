@@ -19,13 +19,13 @@
 <button id="split" class="secondary">Split verse into units</button>
 <label>Exact puzzle units — one unit per line</label><textarea id="units" placeholder="నీ&#10;తి&#10;న్యా&#10;య&#10;ము&#10;ల"></textarea>
 <p class="help">Each line is one puzzle piece. The first line is highlighted yellow and appears only once. Spaces and punctuation should not be included. Keep vowel signs and consonant clusters with their intended unit.</p>
-<div class="grid2"><div><label>Letter size (px)</label><input id="size" type="number" min="14" max="150" value="48"></div><div><label>Minimum gap (px)</label><input id="gap" type="number" min="0" max="100" value="18"></div></div>
+<div class="grid2"><div><label>Letter size (px)</label><input id="size" type="number" min="14" max="150" value="80"></div><div><label>Minimum gap (px)</label><input id="gap" type="number" min="0" max="100" value="18"></div></div>
 <div class="grid2"><div><label>Yellow center size multiplier</label><input id="centerSize" type="number" min="1" max="2" step=".05" value="1.15"></div><div><label>Randomness (tries per unit)</label><input id="tries" type="number" min="100" max="10000" step="100" value="5000"></div></div>
 <label>Placement style</label><select id="layoutStyle" style="width:100%;padding:10px;border:1px solid #bbb;border-radius:8px;background:#fff;color:#171717">
-<option value="rows" selected>Balanced rows: yellow center, evenly filled</option>
+<option value="rows" selected>Auto: reference layout, balanced rows for long verses</option>
 <option value="random">Random scatter with spacing</option>
 </select>
-<p class="help">Balanced placement: the letters are shuffled, then spread evenly across the puzzle area with the yellow unit in the exact center and no empty gaps. Long verses shrink the letters automatically to fit.</p>
+<p class="help">Letters are shuffled first. Short verses (up to 15 units) use the reference layout: corners, top/bottom middle, two on each side, above/below and beside the yellow center. Longer verses fill balanced rows with the yellow unit centered and shrink the letters to fit.</p>
 <h2 style="margin-top:20px">4. Puzzle area (%)</h2><p class="help">These defaults fit the usual framed template; adjust if needed so letters stay inside the black area.</p>
 <div class="grid2"><div><label>Left</label><input id="left" type="number" step=".5" value="5.5"></div><div><label>Top</label><input id="top" type="number" step=".5" value="17.5"></div><div><label>Width</label><input id="width" type="number" step=".5" value="89"></div><div><label>Height</label><input id="height" type="number" step=".5" value="76"></div></div>
 <button id="scatter">Scatter letters</button><button id="download" class="secondary">Download PNG</button>
@@ -101,6 +101,21 @@ function scatter(){
    // Balanced rows: shuffle, then fill every row evenly (no holes) with the yellow unit dead center.
    // Row counts differ by at most one; each row is spread across the full width. Font shrinks if the verse is long.
    for(let i=pieces.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pieces[i],pieces[j]]=[pieces[j],pieces[i]]}
+   // Short verses (up to 14 units besides the yellow): the reference layout. Left/right pieces sit flush to the
+   // frame, the middle column is centered, and two extra spots flank the yellow unit. Filled in priority order.
+   if(pieces.length<=14){
+     const ins=margin+BW*.025,insY=margin+BH*.02,cx={c:.5,a:.3,b:.7};
+     const spec=[['l',.10],['r',.10],['l',.90],['r',.90],['c',.10],['c',.90],['l',.32],['r',.68],['r',.32],['l',.68],['c',.34],['c',.66],['a',.50],['b',.50]];
+     const ok=pieces.every((p,i)=>{
+       const [k,yf]=spec[i];
+       const x=k==='l'?L+ins:k==='r'?L+BW-ins-p.w:L+BW*cx[k]-p.w/2;
+       const y=Math.max(T+insY,Math.min(T+BH*yf-p.h/2,T+BH-insY-p.h));
+       return tryAt(p,x,y);
+     });
+     if(ok){}else placed.length=1;
+     if(ok)pieces.length=0;
+   }
+   if(pieces.length){
    const all=[first,...pieces];all.forEach(p=>p.size0=p.size);
    const uw=BW-2*margin,uh=BH-2*margin,need=all.length;
    function rowCounts(R){
@@ -135,6 +150,7 @@ function scatter(){
        slots.push({x:L+margin+(j+.5)*uw/k,y:T+margin+(r+.5)*uh/plan.R});
      }});
      pieces.forEach((p,i)=>{const sl=slots[i];if(!sl||!tryAt(p,sl.x-p.w/2,sl.y-p.h/2))failed.push(p.text)});
+   }
    }
  }
  ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
