@@ -13,8 +13,8 @@
 <h2>1. Template</h2><p class="help">Uses <b>template.png</b> from the same folder. To change the design, replace that file in your GitHub repository using the exact filename <b>template.png</b>.</p>
 <h2 style="margin-top:20px">2. Template design</h2>
 <div class="grid2"><div><label for="templateColor">Design color</label><input id="templateColor" type="color" value="#ffffff" style="width:100%;height:44px;padding:4px;border:1px solid #bbb;border-radius:8px;background:#fff"></div><div><label for="puzzleNumber">Puzzle number</label><input id="puzzleNumber" type="text" inputmode="numeric" placeholder="e.g. 1" value="1"></div></div>
-<p class="help">Upload your white-design template, then choose the color to apply to its white design elements. The puzzle number is drawn over the template; its position and size are fixed to fit the number badge.</p>
-<div class="grid2"><div><label>Number color</label><input id="numberColor" type="color" value="#ffffff" style="width:100%;height:44px;padding:4px;border:1px solid #bbb;border-radius:8px;background:#fff"></div></div>
+<p class="help">Upload your white-design template, then choose the color to apply to its white design elements. The puzzle number is drawn over the template; adjust its position below to fit the number badge.</p>
+<div class="grid2"><div><label>Number X position (%)</label><input id="numberX" type="number" min="0" max="100" step=".5" value="79"></div><div><label>Number Y position (%)</label><input id="numberY" type="number" min="0" max="100" step=".5" value="6"></div><div><label>Number size (% of width)</label><input id="numberSize" type="number" min="1" max="15" step=".5" value="6"></div><div><label>Number color</label><input id="numberColor" type="color" value="#ffffff" style="width:100%;height:44px;padding:4px;border:1px solid #bbb;border-radius:8px;background:#fff"></div></div>
 <h2 style="margin-top:20px">3. Verse and units</h2><label>Complete Telugu verse (optional helper)</label><textarea id="verse" placeholder="Paste the complete Telugu verse here"></textarea>
 <button id="split" class="secondary">Split verse into units</button>
 <label>Exact puzzle units — one unit per line</label><textarea id="units" placeholder="నీ&#10;తి&#10;న్యా&#10;య&#10;ము&#10;ల"></textarea>
@@ -60,13 +60,11 @@ function drawTemplate(){
  }
  ctx.putImageData(image,0,0);
 }
-// Fixed number badge position/size (percent of image). Edit these three values to change them.
-const NUMBER_X=79,NUMBER_Y=6,NUMBER_SIZE=6;
 function drawNumber(){
  const raw=$('puzzleNumber').value.trim();if(!raw)return;
- const x=canvas.width*NUMBER_X/100;
- const y=canvas.height*NUMBER_Y/100;
- const size=Math.max(12,canvas.width*NUMBER_SIZE/100);
+ const x=canvas.width*Number($('numberX').value)/100;
+ const y=canvas.height*Number($('numberY').value)/100;
+ const size=Math.max(12,canvas.width*Number($('numberSize').value)/100);
  ctx.save();ctx.font=`700 ${size}px system-ui,-apple-system,sans-serif`;
  ctx.textAlign='center';ctx.textBaseline='middle';
  ctx.lineJoin='round';ctx.lineWidth=Math.max(2,size*.12);ctx.strokeStyle='rgba(0,0,0,.72)';ctx.strokeText(raw,x,y);
@@ -162,7 +160,7 @@ function scatter(){
  status(`Placed ${placed.length} of ${items.length} units.${failed.length?'\nCould not place '+failed.length+' unit(s) without overlap: '+failed.join('、')+'\nReduce font size or gap and scatter again.':'\nAll units placed with spacing.'}\nYellow center unit: ${first.text}${note}\nReview the Telugu units and check that all pieces are inside the black box.`,failed.length?'warn':'good');
 }
 $('scatter').addEventListener('click',scatter);
-['templateColor','puzzleNumber','numberColor'].forEach(id=>$(id).addEventListener('input',()=>{base();ready=false;status('Template color or puzzle number updated. Click Scatter letters to redraw the puzzle, then download PNG.')}));
+['templateColor','puzzleNumber','numberX','numberY','numberSize','numberColor'].forEach(id=>$(id).addEventListener('input',()=>{base();ready=false;status('Template color or puzzle number updated. Click Scatter letters to redraw the puzzle, then download PNG.')}));
 $('download').addEventListener('click',()=>{if(!ready){status('Click Scatter letters first.','warn');return}const a=document.createElement('a');a.download='telugu-bible-puzzle.png';a.href=canvas.toDataURL('image/png');a.click()});
 $('copy').addEventListener('click',()=>{
  if(!ready){status('Click Scatter letters first.','warn');return}
